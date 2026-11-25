@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard — CogniMetrics</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1.5rem 0 2rem;
+        }
+        .stat-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            padding: 1.25rem;
+            border-radius: 10px;
+        }
+        .stat-box span {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .stat-box h2 {
+            font-size: 1.8rem;
+            color: var(--primary);
+            margin-top: 0.3rem;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: #0f172a;
+            border-color: var(--primary);
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--surface);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        th, td {
+            padding: 0.9rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        th {
+            background: rgba(15, 23, 42, 0.6);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .status-pill {
+            padding: 0.25rem 0.65rem;
+            border-radius: 99px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .status-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent);
+        }
+        .status-pending {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+        select, textarea {
+            width: 100%;
+            padding: 0.85rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 1rem;
+        }
+        .btn-danger {
+            background: var(--danger);
+            color: #fff;
+            padding: 0.45rem 0.85rem;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav>
+            <div class="logo">CogniMetrics <span style="font-size: 0.85rem; color: var(--text-muted);">Admin</span></div>
+            <button id="logoutBtn" class="btn" style="display: none; padding: 0.5rem 1rem; font-size: 0.85rem; background: var(--surface); color: var(--text);">Lock Dashboard</button>
+        </nav>
+
+        <!-- Admin Login Box -->
+        <div id="loginBox" class="card" style="max-width: 420px; margin: 4rem auto;">
+            <h2 style="margin-bottom: 0.5rem;">Admin Access</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">Enter your admin password to manage questions, pricing, and revenue.</p>
+            <form id="adminLoginForm">
+                <div class="input-group">
+                    <label for="adminPass">Admin Password</label>
+                    <input type="password" id="adminPass" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn" style="width: 100%;">Unlock Dashboard</button>
+            </form>
+        </div>
+
+        <!-- Main Dashboard Content -->
+        <div id="dashboardContent" style="display: none;">
+            <!-- Top KPI Cards -->
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <span>Total Revenue (NGN)</span>
+                    <h2 id="statRevenue">₦0</h2>
+                </div>
+                <div class="stat-box">
+                    <span>Completed Tests</span>
+                    <h2 id="statTests">0</h2>
+                </div>
+                <div class="stat-box">
+                    <span>Registered Users</span>
+                    <h2 id="statUsers">0</h2>
+                </div>
+                <div class="stat-box">
+                    <span>Active Questions</span>
+                    <h2 id="statQuestions">0</h2>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('questionsTab', this)">Questions & Pricing</button>
+                <button class="tab-btn" onclick="switchTab('paymentsTab', this)">Payments</button>
+                <button class="tab-btn" onclick="switchTab('testsTab', this)">Test Attempts</button>
+                <button class="tab-btn" onclick="switchTab('usersTab', this)">Users</button>
+            </div>
+
+            <!-- Tab 1: Questions & Pricing -->
+            <div id="questionsTab" class="tab-panel active">
+                <div class="grid-3" style="grid-template-columns: 1fr 2fr; align-items: start; margin-bottom: 2rem;">
+                    <!-- Update Price Card -->
+                    <div class="card">
+                        <h3 style="margin-bottom: 1rem;">Report Unlock Price</h3>
+                        <form id="priceForm">
+                            <div class="input-group">
+                                <label for="priceNaira">Price in Naira (₦)</label>
+                                <input type="number" id="priceNaira" min="100" step="50" placeholder="2500" required>
+                            </div>
+                            <button type="submit" class="btn" style="width: 100%;">Update Price</button>
+                        </form>
+                    </div>
+
+                    <!-- Add New Question Card -->
+                    <div class="card">
+                        <h3 style="margin-bottom: 1rem;">Add New Question</h3>
+                        <form id="addQuestionForm">
+                            <div class="input-group">
+                                <label for="qCategory">Cognitive Category</label>
+                                <select id="qCategory" required>
+                                    <option value="logic">Logic</option>
+                                    <option value="patterns">Patterns</option>
+                                    <option value="memory">Memory</option>
+                                    <option value="reasoning">Reasoning</option>
+                                </select>
+                            </div>
+                            <div class="input-group">
+                                <label for="qText">Question Prompt</label>
+                                <textarea id="qText" rows="2" placeholder="e.g. Which number comes next in the sequence: 2, 6, 12, 20, ...?" required></textarea>
+                            </div>
+                            <div class="input-group">
+                                <label for="qImage">Image URL (Optional — for visual pattern puzzles)</label>
+                                <input type="url" id="qImage" placeholder="https://example.com">
+                            </div>
+                            <div class="grid-3" style="grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                                <div class="input-group">
+                                    <label>Option A (Index 0)</label>
+                                    <input type="text" id="opt0" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Option B (Index 1)</label>
+                                    <input type="text" id="opt1" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Option C (Index 2)</label>
+                                    <input type="text" id="opt2" required>
+                                </div>
+                                <div class="input-group">
+                                    <label>Option D (Index 3)</label>
+                                    <input type="text" id="opt3" required>
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="qCorrect">Correct Answer</label>
+                                <select id="qCorrect" required>
+                                    <option value="0">Option A</option>
+                                    <option value="1">Option B</option>
+                                    <option value="2">Option C</option>
+                                    <option value="3">Option D</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn">Save Question</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Existing Questions List -->
+                <h3 style="margin-bottom: 1rem;">Question Bank</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Category</th>
+                            <th>Question</th>
+                            <th>Correct Option</th>
+                <!-- Existing Questions List -->
+                <h3 style="margin-bottom: 1rem;">Question Bank</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Category</th>
+                            <th>Question</th>
+                            <th>Correct Option</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="questionsTableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Tab 2: Payments -->
+            <div id="paymentsTab" class="tab-panel">
+                <h3 style="margin-bottom: 1rem;">Payment Transactions</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Reference</th>
+                            <th>User Email</th>
+                            <th>Amount (₦)</th>
+                            <th>Status</th>
+                            <th>Paid At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="paymentsTableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Tab 3: Test Attempts -->
+            <div id="testsTab" class="tab-panel">
+                <h3 style="margin-bottom: 1rem;">Completed IQ Assessments</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Attempt ID</th>
+                            <th>User</th>
+                            <th>Raw Score</th>
+                            <th>IQ Score</th>
+                            <th>Report Status</th>
+                            <th>Completed</th>
+                        </tr>
+                    </thead>
+                    <tbody id="testsTableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Tab 4: Users -->
+            <div id="usersTab" class="tab-panel">
+                <h3 style="margin-bottom: 1rem;">Registered Users</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let adminPassword = sessionStorage.getItem('adminPassword') || '';
+
+        if (adminPassword) {
+            loadDashboard();
+        }
+
+        // Handle Admin Login
+        document.getElementById('adminLoginForm').onsubmit = (e) => {
+            e.preventDefault();
+            adminPassword = document.getElementById('adminPass').value;
+            sessionStorage.setItem('adminPassword', adminPassword);
+            loadDashboard();
+        };
+
+        document.getElementById('logoutBtn').onclick = () => {
+            sessionStorage.removeItem('adminPassword');
+            location.reload();
+        };
+
+        // Fetch Overview Data
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/api/admin/overview', {
+                    headers: { 'x-admin-password': adminPassword }
+                });
+
+                if (res.status === 401) {
+                    sessionStorage.removeItem('adminPassword');
+                    alert('Invalid admin password.');
+                    return;
+                }
+
+                const data = await res.json();
+
+                document.getElementById('loginBox').style.display = 'none';
+                document.getElementById('dashboardContent').style.display = 'block';
+                document.getElementById('logoutBtn').style.display = 'inline-block';
+
+                renderDashboard(data);
+            } catch (err) {
+                alert('Error connecting to admin API.');
+            }
+        }
+
+        function renderDashboard(data) {
+            // Calculate Total Successful Revenue
+            const totalRevenueKobo = data.payments
+                .filter(p => p.status === 'success')
+                .reduce((sum, p) => sum + p.amount_kobo, 0);
+
+            document.getElementById('statRevenue').textContent = `₦${(totalRevenueKobo / 100).toLocaleString()}`;
+            document.getElementById('statTests').textContent = data.tests.length;
+            document.getElementById('statUsers').textContent = data.users.length;
+            document.getElementById('statQuestions').textContent = data.questions.length;
+
+            // Populate Questions Table
+            const qBody = document.getElementById('questionsTableBody');
+            qBody.innerHTML = data.questions.map(q => `
+                <tr>
+                    <td>#${q.id}</td>
+                    <td style="text-transform: capitalize;">${q.category}</td>
+                    <td>${q.question_text}</td>
+                    <td>${q.options[q.correct_option_index]}</td>
+                    <td><button class="btn btn-danger" onclick="deleteQuestion(${q.id})">Delete</button></td>
+                </tr>
+            `).join('');
+
+            // Populate Payments Table
+            const pBody = document.getElementById('paymentsTableBody');
+            pBody.innerHTML = data.payments.map(p => `
+                <tr>
+                    <td>${p.reference}</td>
+                    <td>${p.email}</td>
+                    <td>₦${(p.amount_kobo / 100).toLocaleString()}</td>
+                    <td><span class="status-pill ${p.status === 'success' ? 'status-success' : 'status-pending'}">${p.status.toUpperCase()}</span></td>
+                    <td>${p.paid_at ? new Date(p.paid_at).toLocaleString() : '—'}</td>
+                </tr>
+            `).join('');
+
+            // Populate Tests Table
+            const tBody = document.getElementById('testsTableBody');
+            tBody.innerHTML = data.tests.map(t => `
+                <tr>
+                    <td>#${t.id}</td>
+                    <td>${t.full_name || 'Guest'} (${t.email})</td>
+                    <td>${t.raw_score}</td>
+                    <td><strong>${t.iq_score}</strong></td>
+                    <td><span class="status-pill ${t.is_unlocked ? 'status-success' : 'status-pending'}">${t.is_unlocked ? 'UNLOCKED' : 'LOCKED'}</span></td>
+                    <td>${new Date(t.completed_at).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
+
+            // Populate Users Table
+            const uBody = document.getElementById('usersTableBody');
+            uBody.innerHTML = data.users.map(u => `
+                <tr>
+                    <td>#${u.id}</td>
+                    <td>${u.full_name || '—'}</td>
+                    <td>${u.email}</td>
+                    <td>${new Date(u.created_at).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        // Update Unlock Price
+        document.getElementById('priceForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const price_naira = parseFloat(document.getElementById('priceNaira').value);
+
+            const res = await fetch('/api/admin/settings/price', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-password': adminPassword
+                },
+                body: JSON.stringify({ price_naira })
+            });
+
+            if (res.ok) {
+                alert(`Report unlock price updated to ₦${price_naira.toLocaleString()}`);
+                document.getElementById('priceNaira').value = '';
+            } else {
+                alert('Failed to update price.');
+            }
+        };
+
+        // Add New Question
+        document.getElementById('addQuestionForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const payload = {
+                category: document.getElementById('qCategory').value,
+                question_text: document.getElementById('qText').value,
+                image_url: document.getElementById('qImage').value || null,
+                options: [
+                    document.getElementById('opt0').value,
+                    document.getElementById('opt1').value,
+                    document.getElementById('opt2').value,
+                    document.getElementById('opt3').value
+                ],
+                correct_option_index: parseInt(document.getElementById('qCorrect').value, 10)
+            };
+
+            const res = await fetch('/api/admin/questions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-password': adminPassword
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                e.target.reset();
+                loadDashboard();
+            } else {
+                alert('Failed to add question.');
+            }
+        };
+
+        // Delete Question
+        async function deleteQuestion(id) {
+            if (!confirm('Delete this question permanently?')) return;
+
+            const res = await fetch(`/api/admin/questions/${id}`, {
+                method: 'DELETE',
+                headers: { 'x-admin-password': adminPassword }
+            });
+
+            if (res.ok) {
+                loadDashboard();
+            } else {
+                alert('Failed to delete question.');
+            }
+        }
+
+        // Tab Switcher
+        function switchTab(tabId, btnEl) {
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            btnEl.classList.add('active');
+        }
+    </script>
+</body>
+</html>
