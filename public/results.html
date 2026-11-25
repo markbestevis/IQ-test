@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your IQ Results — CogniMetrics</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .score-circle {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            border: 6px solid var(--primary);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 1.5rem auto;
+            background: rgba(56, 189, 248, 0.08);
+        }
+        .score-circle .number {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--primary);
+            line-height: 1;
+        }
+        .score-circle .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.3rem;
+        }
+        .blurred-box {
+            filter: blur(7px);
+            user-select: none;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        .paywall-overlay {
+            background: var(--surface);
+            border: 2px solid var(--primary);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            margin-top: -4rem;
+            position: relative;
+            z-index: 10;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+        }
+        .breakdown-item {
+            margin-bottom: 1.1rem;
+        }
+        .breakdown-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            margin-bottom: 0.35rem;
+            text-transform: capitalize;
+        }
+        .bar-bg {
+            width: 100%;
+            height: 10px;
+            background: var(--bg);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 99px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 720px;">
+        <nav>
+            <div class="logo">CogniMetrics</div>
+            <a href="index.html" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">Home</a>
+        </nav>
+
+        <div id="loadingState" style="text-align: center; padding: 4rem 1rem;">
+            <h2>Loading your cognitive profile...</h2>
+        </div>
+
+        <!-- Locked Teaser View -->
+        <div id="lockedView" style="display: none; margin-top: 2rem;">
+            <div class="card" style="text-align: center;">
+                <span class="badge">Assessment Graded</span>
+                <h1 id="lockedUserName">Your Results Are Ready</h1>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;" id="previewMessage"></p>
+
+                <div class="blurred-box">
+                    <div class="score-circle">
+                        <span class="number">128</span>
+                        <span class="label">IQ SCORE</span>
+                    </div>
+                    <p>Top 5% Percentile • Superior Analytical Reasoning</p>
+                </div>
+
+                <div class="paywall-overlay">
+                    <h2 style="margin-bottom: 0.5rem;">Unlock Your Full Cognitive Report</h2>
+                    <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.95rem;">
+                        Get your exact IQ score, percentile classification, and a full domain breakdown across Logic, Patterns, Memory, and Reasoning.
+                    </p>
+                    <button id="unlockBtn" class="btn" style="width: 100%; max-width: 340px; font-size: 1.1rem;">
+                        Unlock Report Now
+                    </button>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.85rem;">
+                        Secured by Paystack • Supports Nigerian Cards, Bank Transfer & USSD
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unlocked Full Report View -->
+        <div id="unlockedView" style="display: none; margin-top: 2rem;">
+            <div class="card" style="text-align: center; margin-bottom: 1.5rem;">
+                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent);">Verified Official Report</span>
+                <h1 id="unlockedUserName">Cognitive Assessment Report</h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;" id="completedDate"></p>
+
+                <div class="score-circle">
+                    <span class="number" id="finalIqScore">—</span>
+                    <span class="label">IQ SCORE</span>
+                </div>
+
+                <h3 id="iqClassification" style="color: var(--accent); margin-bottom: 0.5rem;"></h3>
+                <p style="color: var(--text-muted); font-size: 0.95rem;">
+                    Total Correct Answers: <strong id="rawScoreDisplay" style="color: var(--text);"></strong>
+                </p>
+            </div>
+
+            <div class="card">
+                <h3 style="margin-bottom: 1.25rem;">Cognitive Domain Breakdown</h3>
+                <div id="breakdownContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const attemptId = params.get('attemptId');
+        const reference = params.get('reference');
+
+        async function initResults() {
+            if (!attemptId) {
+                document.getElementById('loadingState').innerHTML = '<h2>Invalid result link.</h2>';
+                return;
+            }
+
+            // 1. If returning from Paystack checkout, verify transaction first
+            if (reference) {
+                document.getElementById('loadingState').innerHTML = '<h2>Verifying Paystack payment...</h2>';
+                try {
+                    await fetch(`/api/payments/verify/${reference}`);
+                    // Clean reference from URL so refreshes don't re-verify
+                    window.history.replaceState({}, document.title, `results.html?attemptId=${attemptId}`);
+                } catch (err) {
+                    console.error('Verification check failed:', err);
+                }
+            }
+
+            // 2. Fetch report status and data
+            try {
+                const res = await fetch(`/api/results/${attemptId}`);
+                const data = await res.json();
+
+                document.getElementById('loadingState').style.display = 'none';
+
+                if (!res.ok) {
+                    alert(data.error || 'Could not load results.');
+                    return;
+                }
+
+                if (!data.isUnlocked) {
+                    renderLockedView(data);
+                } else {
+                    renderUnlockedView(data);
+                }
+            } catch (err) {
+                document.getElementById('loadingState').innerHTML = '<h2>Network error loading results.</h2>';
+            }
+        }
+
+        function renderLockedView(data) {
+            document.getElementById('lockedView').style.display = 'block';
+            if (data.fullName) {
+                document.getElementById('lockedUserName').textContent = `${data.fullName}, Your Results Are Ready`;
+            }
+            document.getElementById('previewMessage').textContent = data.previewMessage;
+
+            const unlockBtn = document.getElementById('unlockBtn');
+            unlockBtn.textContent = `Unlock Full Report — ₦${data.priceNaira.toLocaleString()}`;
+
+            unlockBtn.onclick = async () => {
+                unlockBtn.disabled = true;
+                unlockBtn.textContent = 'Connecting to Paystack...';
+
+                try {
+                    const res = await fetch('/api/payments/initialize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ attemptId })
+                    });
+                    const payData = await res.json();
+
+                    if (payData.authorization_url) {
+                        window.location.href = payData.authorization_url;
+                    } else {
+                        alert(payData.error || 'Could not start payment.');
+                        unlockBtn.disabled = false;
+                        unlockBtn.textContent = `Unlock Full Report — ₦${data.priceNaira.toLocaleString()}`;
+                    }
+                } catch (err) {
+                    alert('Payment initialization failed.');
+                    unlockBtn.disabled = false;
+                }
+            };
+        }
+
+        function renderUnlockedView(data) {
+            document.getElementById('unlockedView').style.display = 'block';
+            document.getElementById('unlockedUserName').textContent = `${data.fullName || 'Candidate'}'s Cognitive Profile`;
+            document.getElementById('completedDate').textContent = `Completed on ${new Date(data.completedAt).toLocaleDateString()}`;
+            document.getElementById('finalIqScore').textContent = data.iqScore;
+            document.getElementById('rawScoreDisplay').textContent = data.rawScore;
+            document.getElementById('iqClassification').textContent = getClassification(data.iqScore);
+
+            const container = document.getElementById('breakdownContainer');
+            const categories = ['logic', 'patterns', 'memory', 'reasoning'];
+            const maxPerCategory = Math.max(...Object.values(data.categoryBreakdown), 5);
+
+            container.innerHTML = categories.map(cat => {
+                const score = data.categoryBreakdown[cat] || 0;
+                const widthPct = Math.min(100, Math.round((score / maxPerCategory) * 100));
+                return `
+                    <div class="breakdown-item">
+                        <div class="breakdown-header">
+                                                <div class="breakdown-header">
+                            <strong>${cat}</strong>
+                            <span>${score} pts</span>
+                        </div>
+                        <div class="bar-bg">
+                            <div class="bar-fill" style="width: ${widthPct}%;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getClassification(iq) {
+            if (iq >= 130) return 'Very Superior Intelligence (Top 2%)';
+            if (iq >= 120) return 'Superior Intelligence (Top 9%)';
+            if (iq >= 110) return 'High Average Intelligence';
+            if (iq >= 90) return 'Average Cognitive Range';
+            return 'Developing Analytical Range';
+        }
+
+        initResults();
+    </script>
+</body>
+</html>
