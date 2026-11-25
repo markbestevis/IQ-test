@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IQ Assessment — CogniMetrics</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container" style="max-width: 720px;">
+        <nav>
+            <div class="logo">CogniMetrics</div>
+            <div class="timer-badge" id="timerDisplay">15:00</div>
+        </nav>
+
+        <!-- Step 1: Quiz Container -->
+        <div id="quizSection" style="margin-top: 2rem;">
+            <div class="quiz-header">
+                <span id="questionCounter">Loading questions...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+
+            <div class="card" id="questionCard">
+                <span class="category-tag" id="categoryTag">CATEGORY</span>
+                <h2 id="questionText">Please wait...</h2>
+                <img id="questionImage" class="question-img" style="display: none;" alt="Pattern visual">
+                <div class="options-list" id="optionsContainer"></div>
+            </div>
+
+            <div class="quiz-controls">
+                <button class="btn" id="prevBtn" style="background: var(--surface); color: var(--text);" disabled>Previous</button>
+                <button class="btn" id="nextBtn" disabled>Next Question</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Final Submission Form -->
+        <div id="submitSection" class="card" style="display: none; margin-top: 2rem;">
+            <h2 style="margin-bottom: 0.5rem;">Assessment Complete!</h2>
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem;">Enter your details below to calculate your IQ score and generate your cognitive profile.</p>
+            
+            <form id="userDetailsForm">
+                <div class="input-group">
+                    <label for="fullName">Full Name</label>
+                    <input type="text" id="fullName" placeholder="e.g. Ngozi Okafor" required>
+                </div>
+                <div class="input-group">
+                    <label for="email">Email Address (for your report receipt)</label>
+                    <input type="email" id="email" placeholder="you@example.com" required>
+                </div>
+                <button type="submit" class="btn" id="finalSubmitBtn" style="width: 100%;">Calculate My IQ Score →</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let questions = [];
+        let currentIndex = 0;
+        let userAnswers = {}; // { questionId: selectedIndex }
+        let timeLeftSeconds = 15 * 60; // 15 minutes
+        let timerInterval;
+
+        // 1. Load questions from backend
+        async function initTest() {
+            try {
+                const res = await fetch('/api/questions');
+                questions = await res.json();
+
+                if (!questions.length) {
+                    document.getElementById('questionText').textContent = 'No questions available yet. Please add questions in the Admin Dashboard.';
+                    return;
+                }
+
+                renderQuestion();
+                startTimer();
+            } catch (err) {
+                document.getElementById('questionText').textContent = 'Error loading test. Please refresh.';
+            }
+        }
+
+        // 2. Render current question
+        function renderQuestion() {
+            const q = questions[currentIndex];
+            document.getElementById('questionCounter').textContent = `Question ${currentIndex + 1} of ${questions.length}`;
+            
+            const pct = Math.round(((currentIndex) / questions.length) * 100);
+            document.getElementById('progressPercent').textContent = `${pct}%`;
+            document.getElementById('progressBar').style.width = `${pct}%`;
+
+            document.getElementById('categoryTag').textContent = q.category;
+            document.getElementById('questionText').textContent = q.question_text;
+
+            const imgEl = document.getElementById('questionImage');
+            if (q.image_url) {
+                imgEl.src = q.image_url;
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.style.display = 'none';
+            }
+
+            const optionsContainer = document.getElementById('optionsContainer');
+            optionsContainer.innerHTML = '';
+
+            q.options.forEach((optText, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                if (userAnswers[q.id] === idx) {
+                    btn.classList.add('selected');
+                }
+                btn.textContent = optText;
+                btn.onclick = () => selectOption(q.id, idx);
+                optionsContainer.appendChild(btn);
+            });
+
+            document.getElementById('prevBtn').disabled = currentIndex === 0;
+            const nextBtn = document.getElementById('nextBtn');
+            nextBtn.disabled = userAnswers[q.id] === undefined;
+            nextBtn.textContent = currentIndex === questions.length - 1 ? 'Finish Test' : 'Next Question';
+        }
+
+        // 3. Handle answer selection
+        function selectOption(questionId, optionIndex) {
+            userAnswers[questionId] = optionIndex;
+            renderQuestion();
+        }
+
+        document.getElementById('prevBtn').onclick = () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                renderQuestion();
+            }
+        };
+
+        document.getElementById('nextBtn').onclick = () => {
+            if (currentIndex < questions.length - 1) {
+                currentIndex++;
+                renderQuestion();
+            } else {
+                finishQuizPhase();
+            }
+        };
+
+        // 4. Countdown Timer
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeLeftSeconds--;
+                const mins = Math.floor(timeLeftSeconds / 60);
+                const secs = timeLeftSeconds % 60;
+                document.getElementById('timerDisplay').textContent = 
+                    `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+                if (timeLeftSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    finishQuizPhase();
+                }
+            }, 1000);
+        }
+
+        function finishQuizPhase() {
+            clearInterval(timerInterval);
+            document.getElementById('quizSection').style.display = 'none';
+            document.getElementById('submitSection').style.display = 'block';
+        }
+
+        // 5. Submit answers to backend
+        document.getElementById('userDetailsForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('finalSubmitBtn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Analyzing Answers...';
+
+            const formattedAnswers = Object.entries(userAnswers).map(([qId, selIdx]) => ({
+                questionId: parseInt(qId, 10),
+                selectedIndex: selIdx
+            }));
+
+            try {
+                const res = await fetch('/api/tests/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fullName: document.getElementById('fullName').value,
+                        email: document.getElementById('email').value,
+                        answers: formattedAnswers
+                    })
+                });
+
+                const data = await res.json();
+                if (data.attemptId) {
+                    window.location.href = `results.html?attemptId=${data.attemptId}`;
+                } else {
+                    alert('Submission failed. Please try again.');
+                    submitBtn.disabled = false;
+                }
+            } catch (err) {
+                alert('Network error submitting test.');
+                submitBtn.disabled = false;
+            }
+        };
+
+        initTest();
+    </script>
+</body>
+</html>
